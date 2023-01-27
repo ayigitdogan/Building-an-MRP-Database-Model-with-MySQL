@@ -1,4 +1,4 @@
-# MRP Database Model with MySQL
+# Building an MRP Database Model with MySQL
 
 In this project, on which I have been working as my term project for Enterprise Information Systems class at Boğaziçi University, I created a database with MySQL to automate the calculations of "Material Resources Planning (MRP) Algorithm".
 

@@ -1,0 +1,485 @@
+---
+title: "IE442 - Fall 2022, Implementation Project"
+author: "Ahmet Yiğit Doğan - 2018402105"
+date: "14 Jan, 2023"
+    
+---
+
+# Notes
+
+The below R code runs the SQL calculations to;
+
+- Create a sample database,
+- Add the required SQL functions, stored procedures, and triggers to the database,
+- And finally insert a sample order to the orders table.
+
+After the SQL calculations, there are some R codes to export final MRP tables after the insertion and the calculations caused by the insertion.
+
+```{r intro, warning = FALSE}
+
+# Required libraries
+
+library("DBI")
+library("RMySQL")
+library("janitor")  # Will be used for data manipulation after getting results
+library("writexl")  # Will be used to export results
+
+# Set working directory to the current folder
+
+setwd(getwd())
+
+# Connecting to database
+
+db <- dbConnect(MySQL(),
+                user        = "root",
+                password    = "1999",
+                host        = "localhost")
+
+# Creating a sample database
+
+dbSendQuery(db, "CREATE DATABASE sample_database;")
+
+# Reconnecting to the database by specifying the database name this time
+
+db <- dbConnect(MySQL(),
+                user        = "root",
+                password    = "1999",
+                dbname      = "sample_database",
+                host        = "localhost")
+
+```
+
+# Creating a Sample Database
+
+```{sql connection = db}
+
+CREATE TABLE item ( item_id VARCHAR(16) PRIMARY KEY,
+                    item_name VARCHAR(96),
+                    lot_size INT NOT NULL,
+                    lead_time INT NOT NULL,
+                    inventory INT NOT NULL);
+
+```
+
+```{sql connection = db}
+
+INSERT INTO item (item_id, item_name, lot_size, lead_time, inventory)
+VALUES  ("001", "Trumpet", 1, 2, 3),
+        ("002", "Valve Casing Assembly", 10, 4, 10),
+        ("003", "Bell Assembly", 10, 2, 10),
+        ("004", "Slide Assemblies", 20, 2, 20),
+        ("005", "Valves", 30, 3, 30);
+
+```
+
+```{sql connection = db}
+
+CREATE TABLE bom (  item_id VARCHAR(16),
+                    component_id VARCHAR(16),
+                    bom_multiplier INT NOT NULL,
+                    PRIMARY KEY (item_id, component_id));
+
+```
+
+```{sql connection = db}
+
+INSERT INTO bom (item_id, component_id, bom_multiplier)
+VALUES  ("001", "002", 1),
+        ("001", "003", 1),
+        ("002", "004", 3),
+        ("002", "005", 3);  
+
+```
+
+```{sql connection = db}
+
+CREATE TABLE item_period (  item_id VARCHAR(16),
+                            period_number INT,
+                            gross_requirement INT,
+                            projected_inventory INT,
+                            planned_order_receipt INT,
+                            planned_order_release INT,
+                            PRIMARY KEY (item_id, period_number));
+
+```
+
+```{sql connection = db}
+
+INSERT INTO item_period (   item_id, period_number, gross_requirement,
+                            projected_inventory, planned_order_receipt,
+                            planned_order_release)
+VALUES  ("001", 0, 0, 3, 0, 0),         
+        ("001", 1, 0, 3, 0, 0),       
+        ("001", 2, 0, 3, 0, 0),
+        ("001", 3, 0, 3, 0, 0),
+        ("001", 4, 0, 3, 0, 0),
+        ("001", 5, 0, 3, 0, 0),
+        ("001", 6, 0, 3, 0, 0),
+        ("001", 7, 0, 3, 0, 0),
+        ("001", 8, 0, 3, 0, 0),
+        ("001", 9, 0, 3, 0, 0),
+        ("001", 10, 0, 3, 0, 0),
+        ("001", 11, 0, 3, 0, 0),
+        ("001", 12, 0, 3, 0, 0),
+        ("002", 0, 0, 10, 0, 0),      
+        ("002", 1, 0, 10, 0, 0),
+        ("002", 2, 0, 10, 0, 0),
+        ("002", 3, 0, 10, 0, 0),
+        ("002", 4, 0, 10, 0, 0),
+        ("002", 5, 0, 10, 0, 0),
+        ("002", 6, 0, 10, 0, 0),
+        ("002", 7, 0, 10, 0, 0),
+        ("002", 8, 0, 10, 0, 0),
+        ("002", 9, 0, 10, 0, 0),
+        ("002", 10, 0, 10, 0, 0),
+        ("002", 11, 0, 10, 0, 0),
+        ("002", 12, 0, 10, 0, 0),
+        ("003", 0, 0, 10, 0, 0),        
+        ("003", 1, 0, 10, 0, 0),
+        ("003", 2, 0, 10, 0, 0),
+        ("003", 3, 0, 10, 0, 0),
+        ("003", 4, 0, 10, 0, 0),
+        ("003", 5, 0, 10, 0, 0),
+        ("003", 6, 0, 10, 0, 0),
+        ("003", 7, 0, 10, 0, 0),
+        ("003", 8, 0, 10, 0, 0),
+        ("003", 9, 0, 10, 0, 0),
+        ("003", 10, 0, 10, 0, 0),
+        ("003", 11, 0, 10, 0, 0),
+        ("003", 12, 0, 10, 0, 0),
+        ("004", 0, 0, 20, 0, 0),        
+        ("004", 1, 0, 20, 0, 0),
+        ("004", 2, 0, 20, 0, 0),
+        ("004", 3, 0, 20, 0, 0),
+        ("004", 4, 0, 20, 0, 0),
+        ("004", 5, 0, 20, 0, 0),
+        ("004", 6, 0, 20, 0, 0),
+        ("004", 7, 0, 20, 0, 0),
+        ("004", 8, 0, 20, 0, 0),
+        ("004", 9, 0, 20, 0, 0),
+        ("004", 10, 0, 20, 0, 0),
+        ("004", 11, 0, 20, 0, 0),
+        ("004", 12, 0, 20, 0, 0),
+        ("005", 0, 0, 30, 0, 0),       
+        ("005", 1, 0, 30, 0, 0),
+        ("005", 2, 0, 30, 0, 0),
+        ("005", 3, 0, 30, 0, 0),
+        ("005", 4, 0, 30, 0, 0),
+        ("005", 5, 0, 30, 0, 0),
+        ("005", 6, 0, 30, 0, 0),
+        ("005", 7, 0, 30, 0, 0),
+        ("005", 8, 0, 30, 0, 0),
+        ("005", 9, 0, 30, 0, 0),
+        ("005", 10, 0, 30, 0, 0),
+        ("005", 11, 0, 30, 0, 0),
+        ("005", 12, 0, 30, 0, 0);
+
+
+```
+
+```{sql connection = db}
+
+CREATE TABLE orders (   order_id VARCHAR(16) PRIMARY KEY,
+                        customer_id VARCHAR(16),
+                        period_number INT NOT NULL,
+                        item_id VARCHAR(16) NOT NULL,
+                        amount INT NOT NULL,
+                        order_date DATETIME);
+
+```
+
+```{sql connection = db}
+
+CREATE TABLE periods (  period_number INT PRIMARY KEY,
+                        start_date DATE,
+                        end_date DATE);
+
+```
+
+```{sql connection = db}
+
+INSERT INTO periods (period_number)
+VALUES  (1), (2), (3), (4), (5), (6),
+        (7), (8), (9), (10), (11), (12);
+
+```
+
+```{sql connection = db}
+
+CREATE TABLE customer ( customer_id VARCHAR(16) PRIMARY KEY,
+                        customer_name VARCHAR(16));
+
+```
+
+```{sql connection = db}
+
+CREATE TABLE required_items (   required_item VARCHAR(16),
+                                required_amount INT,
+                                due_period INT);
+
+```
+
+# SQL Function Definitions
+
+```{sql connection = db}
+
+SET GLOBAL log_bin_trust_function_creators = 1;
+
+```
+
+## GetLeadTime
+
+```{sql connection = db}
+
+CREATE FUNCTION GetLeadTime(required_item_id VARCHAR(16))
+	RETURNS INT
+
+	BEGIN
+
+		DECLARE LT INT;
+
+		SET LT = (	SELECT item.lead_time
+					FROM item
+					WHERE item.item_id = required_item_id);
+
+		RETURN LT;
+
+	END;
+
+```
+
+## GetLotSize
+
+```{sql connection = db}
+
+CREATE FUNCTION GetLotSize(required_item_id VARCHAR(16))
+	RETURNS INT
+
+	BEGIN
+
+		DECLARE LS INT;
+
+		SET LS = (	SELECT item.lot_size
+					FROM item
+					WHERE item.item_id = required_item_id);
+
+		RETURN LS;
+
+	END;
+
+```
+
+## GetProjectedInventory
+
+```{sql connection = db}
+
+CREATE FUNCTION GetProjectedInventory(  required_item_id VARCHAR(16),
+                                        required_item_period INT)
+	RETURNS INT
+
+	BEGIN
+
+		DECLARE PInv INT;
+
+		SET PInv = (SELECT item_period.projected_inventory
+					FROM item_period
+					WHERE   item_period.item_id = required_item_id AND
+							item_period.period_number = required_item_period);
+
+		RETURN PInv;
+
+	END;
+
+```
+
+# Stored Procedure Definitions
+
+## GetRequiredItemsCount
+
+```{sql connection = db}
+
+CREATE PROCEDURE GetRequiredItemsCount(
+	IN item VARCHAR(16),
+	IN parent_item_count INT,
+    IN parent_item_due INT)
+
+	BEGIN
+        -- CLEAR THE REQUIRED ITEMS TABLE
+ 		DELETE FROM required_items;
+        
+        INSERT INTO required_items (required_item, required_amount, due_period)
+        
+            WITH RECURSIVE cte (it, ad, due) AS (
+                SELECT DISTINCT item_id, parent_item_count, parent_item_due
+                FROM bom WHERE item_id = item
+                UNION ALL
+                SELECT bom.component_id,  cte.ad*bom.bom_multiplier, cte.due - GetLeadTime(cte.it) 
+                FROM cte JOIN bom ON cte.it = bom.item_id
+            )
+            SELECT * FROM cte ORDER BY it;
+
+	END;
+
+```
+
+## UpdateMRPTables
+
+```{sql connection = db}
+
+CREATE PROCEDURE UpdateMRPTables ()
+    BEGIN
+        DECLARE done_i INT DEFAULT 0;
+
+        DECLARE var_i_id VARCHAR(16);
+        
+        DECLARE cursor_i CURSOR FOR
+        SELECT item_id FROM item_period GROUP BY item_id;
+
+        DECLARE CONTINUE HANDLER FOR NOT FOUND SET done_i = 1;
+
+        OPEN cursor_i;
+        
+            item_loop: LOOP
+                FETCH cursor_i INTO var_i_id;
+                
+                IF done_i = 1 THEN
+                    LEAVE item_loop;
+                END IF;
+
+                itemwise_update_block: BEGIN
+
+                    DECLARE done_j INT DEFAULT 0;
+
+                    DECLARE var_j_period INT;
+                    DECLARE var_j_gross INT;
+                    DECLARE var_j_inventory INT;
+                    DECLARE var_j_receipt INT;
+                    DECLARE var_j_release INT;
+
+                    DECLARE net_requirement INT;
+                    DECLARE receipt_increment INT;
+
+                    DECLARE cursor_j CURSOR FOR
+                    SELECT  period_number, gross_requirement,
+                            projected_inventory, planned_order_receipt,
+                            planned_order_release
+                    FROM item_period
+                    WHERE   item_id = var_i_id AND
+                            period_number <> 0;
+
+                    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done_j = 1;
+
+                    OPEN cursor_j; 
+
+                        period_loop: LOOP
+                            FETCH cursor_j INTO var_j_period, var_j_gross,
+                                                var_j_inventory, var_j_receipt, 
+                                                var_j_release;
+
+                            IF done_j = 1 THEN
+                                LEAVE period_loop;
+                            END IF;
+                        
+                            SET net_requirement =   var_j_gross - 
+                                                    GetProjectedInventory(  var_i_id,
+                                                                            var_j_period - 1);
+
+                            
+                            IF net_requirement > 0 THEN
+                                SET receipt_increment = CEILING(net_requirement/
+                                                                GetLotSize(var_i_id))*
+                                                                GetLotSize(var_i_id);
+
+                                UPDATE item_period
+                                    SET planned_order_receipt = planned_order_receipt +
+                                                                receipt_increment,
+                                        projected_inventory =   projected_inventory +
+                                                                receipt_increment -
+                                                                gross_requirement
+                                    WHERE   item_id = var_i_id AND
+                                            period_number = var_j_period;
+
+                                UPDATE item_period
+                                    SET planned_order_release = planned_order_release +
+                                                                receipt_increment
+                                    WHERE   item_id = var_i_id AND
+                                            period_number = var_j_period - GetLeadTime(var_i_id);
+
+                            ELSE
+                                UPDATE item_period
+                                    SET projected_inventory = -net_requirement
+                                    WHERE   item_id = var_i_id AND
+                                            period_number = var_j_period;
+
+                            END IF;
+ 
+                        END LOOP period_loop;
+                    CLOSE cursor_j;
+                END itemwise_update_block;
+
+
+            END LOOP item_loop;
+        CLOSE cursor_i;
+    END;
+
+```
+
+# Definition of the Order Insertion Trigger
+
+```{sql connection = db}
+
+CREATE TRIGGER after_order_insertion AFTER INSERT ON orders
+    FOR EACH ROW
+    BEGIN
+
+        -- UPDATE GROSS REQUIREMENT
+
+        CALL GetRequiredItemsCount(NEW.item_id, NEW.amount, NEW.period_number);
+
+        UPDATE item_period
+        INNER JOIN required_items ON    item_period.item_id = required_items.required_item AND
+                                        item_period.period_number = required_items.due_period
+        SET item_period.gross_requirement = item_period.gross_requirement +
+                                            required_items.required_amount;
+
+        -- UPDATE MRP TABLES BY PROCEDURE CALL
+
+        CALL UpdateMRPTables();
+
+    END;
+
+```
+
+# Test Case
+
+Inserting an order of 15 trumpets, due: 10th week
+
+```{sql connection = db}
+
+INSERT INTO orders (order_id, period_number, item_id, amount, order_date)
+VALUES ("ORD001", 10, "001", 15, NOW());
+
+```
+
+# Exporting the Resulting MRP Tables
+
+```{r}
+
+# Exporting results as xlsx files
+
+query <- dbSendQuery(db, "SELECT * FROM item_period;")
+
+results_df  <- dbFetch(query)
+
+for (i in c(1:5)) {
+    
+    temp <- t(results_df[as.numeric(results_df$item_id) == i, -1]) %>%
+        row_to_names(row_number = 1)
+    
+    write_xlsx(as.data.frame(temp), paste("item", i, "mrp.xlsx", sep = ""))
+    
+}
+
+```
+
+
